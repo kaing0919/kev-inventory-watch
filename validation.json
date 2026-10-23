@@ -33,8 +33,30 @@
   ],
   "limits": [
     "Discord delivery has not been sent or verified against Discord",
-    "Production schedule/static-data durability still requires instance execution",
-    "No income, affiliate approval or customer usage proven"
-  ]
+    "No income, affiliate approval or customer usage proven",
+    "Runtime preview is successful; scheduled production persistence is not verified"
+  ],
+  "runtime": {
+    "version": "2.44.5",
+    "mode": "standalone CLI after real workflow import",
+    "startedAt": "2026-10-23T02:39:54.556Z",
+    "stoppedAt": "2026-10-23T02:39:56.031Z",
+    "status": "success",
+    "finished": true,
+    "executedNodes": [
+      "Manual preview",
+      "Configure inventory",
+      "Fetch official KEV mirror",
+      "Prepare digest",
+      "Send live alerts",
+      "Inspect preview or baseline"
+    ],
+    "previewParts": 1,
+    "selectedCount": 8,
+    "catalogCount": 1754,
+    "discordExecuted": false,
+    "durableProductionStateVerified": false,
+    "pythonWarning": "Optional Python runner unavailable; workflow uses only JavaScript and the JS task runner completed."
+  }
 }
 
