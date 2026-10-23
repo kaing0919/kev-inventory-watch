@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-23T02:31:40.292Z",
+  "logicChecksPassed": 10,
+  "checks": [
+    "Preview is side-effect free and exact vendor/product aliases exclude unrelated records",
+    "First live run establishes a quiet baseline",
+    "Same catalog produces no repeat alert",
+    "A new matching CVE produces an alert without advancing delivery state",
+    "Delivery count mismatch refuses acknowledgement and permits retry",
+    "Successful acknowledgement suppresses repeats",
+    "Malformed feed fails before touching persistent state",
+    "Inventory edits establish a new quiet baseline",
+    "Large digests stay below Discord message limits",
+    "Current official CISA mirror parses and yields a credential-free preview"
+  ],
+  "source": "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json",
+  "catalogCount": 1754,
+  "catalogVersion": "2026.10.21",
+  "livePreview": [
+    {
+      "send": false,
+      "mode": "preview",
+      "content": "KEV exposure candidates — verify affected versions before action.\n\nCVE-2026-96951 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-10-13 | CISA due: 2026-10-16\nhttps://nvd.nist.gov/vuln/detail/CVE-2026-96951\n\nCVE-2026-81963 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-09-08 | CISA due: 2026-09-22\nhttps://nvd.nist.gov/vuln/detail/CVE-2026-81963\n\nCVE-2026-85880 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-09-08 | CISA due: 2026-09-22\nhttps://nvd.nist.gov/vuln/detail/CVE-2026-85880\n\nCVE-2025-68686 | Fortinet / FortiOS\nInventory: FortiOS appliances\nAdded: 2026-07-27 | CISA due: 2026-08-10\nhttps://nvd.nist.gov/vuln/detail/CVE-2025-68686\n\nCVE-2008-4250 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-05-20 | CISA due: 2026-06-03\nhttps://nvd.nist.gov/vuln/detail/CVE-2008-4250\n\nCVE-2026-32202 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-04-28 | CISA due: 2026-05-12\nhttps://nvd.nist.gov/vuln/detail/CVE-2026-32202\n\nCVE-2025-60710 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-04-13 | CISA due: 2026-04-27\nhttps://nvd.nist.gov/vuln/detail/CVE-2025-60710\n\nCVE-2023-36424 | Microsoft / Windows\nInventory: Windows fleet\nAdded: 2026-04-13 | CISA due: 2026-04-27\nhttps://nvd.nist.gov/vuln/detail/CVE-2023-36424\n",
+      "part": 1,
+      "parts": 1,
+      "newMatches": 184,
+      "selectedCount": 8,
+      "matchedCount": 184,
+      "inventoryKey": "[{\"label\":\"FortiOS appliances\",\"vendors\":[\"fortinet\"],\"products\":[\"fortios\"]},{\"label\":\"Windows fleet\",\"vendors\":[\"microsoft\"],\"products\":[\"windows\"]}]",
+      "catalogVersion": "2026.10.21",
+      "catalogCount": 1754
+    }
+  ],
+  "limits": [
+    "Discord delivery has not been sent or verified against Discord",
+    "Production schedule/static-data durability still requires instance execution",
+    "No income, affiliate approval or customer usage proven"
+  ]
+}
+
