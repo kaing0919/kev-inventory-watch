@@ -1,0 +1,288 @@
+{
+  "name": "Watch new CISA KEV matches for your software inventory in Discord — no AI API",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-preview",
+      "name": "Manual preview",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "daily-check",
+      "name": "Daily check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        340
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "configure-inventory",
+      "name": "Configure inventory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: {\n  \"dryRun\": true,\n  \"inventory\": [\n    {\n      \"label\": \"Windows fleet\",\n      \"vendorAliases\": [\n        \"Microsoft\"\n      ],\n      \"productAliases\": [\n        \"Windows\"\n      ]\n    },\n    {\n      \"label\": \"FortiOS appliances\",\n      \"vendorAliases\": [\n        \"Fortinet\"\n      ],\n      \"productAliases\": [\n        \"FortiOS\"\n      ]\n    }\n  ],\n  \"previewLimit\": 8\n} }];"
+      }
+    },
+    {
+      "id": "fetch-official-kev-mirror",
+      "name": "Fetch official KEV mirror",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "prepare-digest",
+      "name": "Prepare digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "jsCode": "\n// Exact aliases identify exposure candidates, NOT confirmed affected versions.\nconst cfg = $('Configure inventory').first().json;\nif (typeof cfg.dryRun !== 'boolean') throw new Error('dryRun must be a boolean');\nif (!Array.isArray(cfg.inventory) || !cfg.inventory.length) throw new Error('Add an inventory first');\nconst norm = v => String(v).normalize('NFKC').trim().toLowerCase().replace(/\\s+/g, ' ');\nconst clean = (v, max = 120) => String(v ?? '').replace(/[\\r\\n\\t]/g, ' ').replace(/@/g, '＠').slice(0, max);\nconst inventory = cfg.inventory.map(row => {\n  if (!row.label || !Array.isArray(row.vendorAliases) || !row.vendorAliases.length || !Array.isArray(row.productAliases) || !row.productAliases.length) throw new Error('Every inventory row needs label and non-empty alias arrays');\n  if ([...row.vendorAliases, ...row.productAliases].some(v => typeof v !== 'string' || !norm(v))) throw new Error('Aliases must be non-empty strings');\n  return { label: clean(row.label), vendors: [...new Set(row.vendorAliases.map(norm))].sort(), products: [...new Set(row.productAliases.map(norm))].sort() };\n}).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));\nconst catalog = $input.first().json;\nif (!catalog || !Array.isArray(catalog.vulnerabilities) || !catalog.vulnerabilities.length || !catalog.dateReleased) throw new Error('Invalid or empty KEV catalog; no state changed');\nif (Number(catalog.count) !== catalog.vulnerabilities.length) throw new Error('KEV count mismatch; no state changed');\nconst allIds = new Set();\nfor (const v of catalog.vulnerabilities) {\n  if (!/^CVE-\\d{4}-\\d{4,}$/.test(v.cveID) || allIds.has(v.cveID) || typeof v.vendorProject !== 'string' || typeof v.product !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(v.dateAdded)) throw new Error('Malformed or duplicate KEV record; no state changed');\n  allIds.add(v.cveID);\n}\nconst matched = catalog.vulnerabilities.flatMap(v => {\n  const groups = inventory.filter(row => row.vendors.includes(norm(v.vendorProject)) && row.products.includes(norm(v.product)));\n  return groups.length ? [{ ...v, groups: groups.map(row => row.label) }] : [];\n});\nconst key = JSON.stringify(inventory);\nconst state = $getWorkflowStaticData('global');\nconst existing = state.kevWatchV1;\nconst initialized = existing && existing.inventoryKey === key && Array.isArray(existing.seen);\nif (!cfg.dryRun && !initialized) {\n  state.kevWatchV1 = { inventoryKey: key, seen: [...allIds], initializedAt: new Date().toISOString(), lastCatalog: String(catalog.catalogVersion ?? '') };\n  return [{ json: { send: false, mode: 'baseline', catalogCount: allIds.size, matchedCount: matched.length, note: 'Baseline recorded. No historical alerts sent. Publish/activate for persistence.' } }];\n}\nconst seen = new Set(initialized ? existing.seen : []);\nconst candidates = matched.filter(v => !seen.has(v.cveID)).sort((a, b) => b.dateAdded.localeCompare(a.dateAdded) || a.cveID.localeCompare(b.cveID));\nconst selected = cfg.dryRun ? (initialized ? candidates : matched.sort((a,b) => b.dateAdded.localeCompare(a.dateAdded))).slice(0, Math.min(20, Math.max(1, Number(cfg.previewLimit) || 8))) : candidates;\nif (!selected.length) return [{ json: { send: false, mode: cfg.dryRun ? 'preview' : 'no-change', catalogCount: allIds.size, matchedCount: matched.length, newMatches: 0 } }];\nconst header = 'KEV exposure candidates — verify affected versions before action.\\n';\nconst chunks = [];\nlet content = header;\nfor (const v of selected) {\n  const line = '\\n' + v.cveID + ' | ' + clean(v.vendorProject, 60) + ' / ' + clean(v.product, 90) + '\\nInventory: ' + clean(v.groups.join(', '), 120) + '\\nAdded: ' + v.dateAdded + ' | CISA due: ' + clean(v.dueDate, 10) + '\\nhttps://nvd.nist.gov/vuln/detail/' + v.cveID + '\\n';\n  if (content.length + line.length > 1700) { chunks.push(content); content = header; }\n  content += line;\n}\nif (content !== header) chunks.push(content);\nreturn chunks.map((content, index) => ({ json: { send: !cfg.dryRun, mode: cfg.dryRun ? 'preview' : 'alert', content, part: index + 1, parts: chunks.length, newMatches: candidates.length, selectedCount: selected.length, matchedCount: matched.length, inventoryKey: key, catalogVersion: String(catalog.catalogVersion ?? ''), catalogIds: [...allIds], catalogCount: allIds.size } }));\n"
+      }
+    },
+    {
+      "id": "send-live-alerts",
+      "name": "Send live alerts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "live-alert",
+              "leftValue": "={{ $json.send }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "discord-alert",
+      "name": "Discord alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        160
+      ],
+      "parameters": {
+        "authentication": "webhook",
+        "resource": "webhook",
+        "operation": "sendLegacy",
+        "content": "={{ $json.content }}",
+        "options": {
+          "wait": true,
+          "username": "KEV Inventory Watch"
+        }
+      }
+    },
+    {
+      "id": "acknowledge-successful-delivery",
+      "name": "Acknowledge successful delivery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        160
+      ],
+      "parameters": {
+        "jsCode": "\n// Reached only if ALL Discord sends succeeded; leave Continue On Fail disabled.\nconst sent = $('Prepare digest').all().map(item => item.json);\nif (!sent.length || sent.some(item => item.send !== true || item.mode !== 'alert')) throw new Error('No live sends to acknowledge');\nif ($input.all().length !== sent.length) throw new Error('Discord response count mismatch; no acknowledgement');\nconst state = $getWorkflowStaticData('global');\nif (!state.kevWatchV1 || state.kevWatchV1.inventoryKey !== sent[0].inventoryKey) throw new Error('Inventory changed; run again to initialize');\nstate.kevWatchV1.seen = sent[0].catalogIds;\nstate.kevWatchV1.lastCatalog = sent[0].catalogVersion;\nstate.kevWatchV1.lastSentAt = new Date().toISOString();\nreturn [{json: {status: 'acknowledged', messages: sent.length, newMatches: sent[0].newMatches, catalogVersion: sent[0].catalogVersion}}];\n"
+      }
+    },
+    {
+      "id": "inspect-preview-or-baseline",
+      "name": "Inspect preview or baseline",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        380
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "setup-and-safety",
+      "name": "Setup and safety",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        150,
+        -170
+      ],
+      "parameters": {
+        "height": 290,
+        "width": 490,
+        "content": "## Start here\n1. Edit **Configure inventory** using exact aliases from the KEV catalog.\n2. Keep `dryRun: true`, then run **Manual preview**.\n3. Select your own Discord Webhook credential in **Discord alert**.\n4. Set `dryRun: false`, publish/activate. First live run establishes a quiet baseline.\n5. Later new matches are sent daily; only successful delivery advances state.\n\nA vendor/product match is an exposure candidate, not proof of affected software/version. No AI/API subscription required. Configure the workflow time zone. Use only one active copy."
+      }
+    },
+    {
+      "id": "delivery-semantics",
+      "name": "Delivery semantics",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        850,
+        -170
+      ],
+      "parameters": {
+        "height": 250,
+        "width": 560,
+        "content": "## Persistence and delivery\nWorkflow static data persists only after successful production executions; manual tests/CLI do not demonstrate durable scheduled state.\n\nHistorical KEVs are suppressed at first live baseline. Review the preview before enabling. Changing inventory resets the baseline. Keep Continue On Fail off. Partial delivery failure can resend earlier parts next time (at least once). Avoid overlapping executions. Missing credentials/feed failure must appear as failed executions; configure an error workflow in your instance.\n\nCISA due dates describe federal remediation deadlines; they are not a finding of your organization’s obligations."
+      }
+    }
+  ],
+  "connections": {
+    "Manual preview": {
+      "main": [
+        [
+          {
+            "node": "Configure inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily check": {
+      "main": [
+        [
+          {
+            "node": "Configure inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure inventory": {
+      "main": [
+        [
+          {
+            "node": "Fetch official KEV mirror",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch official KEV mirror": {
+      "main": [
+        [
+          {
+            "node": "Prepare digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare digest": {
+      "main": [
+        [
+          {
+            "node": "Send live alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send live alerts": {
+      "main": [
+        [
+          {
+            "node": "Discord alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inspect preview or baseline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord alert": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge successful delivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "pinData": {}
+}
+
