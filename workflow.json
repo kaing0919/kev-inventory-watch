@@ -191,6 +191,36 @@
         "width": 560,
         "content": "## Persistence and delivery\nWorkflow static data persists only after successful production executions; manual tests/CLI do not demonstrate durable scheduled state.\n\nHistorical KEVs are suppressed at first live baseline. Review the preview before enabling. Changing inventory resets the baseline. Keep Continue On Fail off. Partial delivery failure can resend earlier parts next time (at least once). Avoid overlapping executions. Missing credentials/feed failure must appear as failed executions; configure an error workflow in your instance.\n\nCISA due dates describe federal remediation deadlines; they are not a finding of your organization’s obligations."
       }
+    },
+    {
+      "id": "understand-matching",
+      "name": "Understand matching",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        450,
+        530
+      ],
+      "parameters": {
+        "height": 220,
+        "width": 520,
+        "content": "## Match and inspect\nThe source is the public official CISA GitHub mirror. No API key is needed.\n\nMatch both vendor AND product against your explicit alias arrays. Case, Unicode and whitespace are normalized; synonyms and affected versions are not inferred. Results are candidates for triage.\n\nPreview shows historical matches and never changes the cursor. Inspect the branch ending at **Inspect preview or baseline**."
+      }
+    },
+    {
+      "id": "before-enabling-delivery",
+      "name": "Before enabling delivery",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        530
+      ],
+      "parameters": {
+        "height": 220,
+        "width": 520,
+        "content": "## Deliver and acknowledge\nUse an n8n Discord Webhook credential; do not put your secret webhook URL in this JSON.\n\nOnly the TRUE branch sends. The workflow advances its cursor after every message succeeds. Keep Continue On Fail disabled. A partial failure may resend earlier parts on the next run.\n\nFirst live run is a quiet baseline; this is intentional. Configure failed-execution monitoring before leaving the workflow active."
+      }
     }
   ],
   "connections": {
