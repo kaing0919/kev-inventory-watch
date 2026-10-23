@@ -57,6 +57,12 @@
     "discordExecuted": false,
     "durableProductionStateVerified": false,
     "pythonWarning": "Optional Python runner unavailable; workflow uses only JavaScript and the JS task runner completed."
+  },
+  "editorRevision": {
+    "at": "2026-10-23T02:51:00Z",
+    "change": "Two stage-specific sticky notes added for template review; executable node definitions unchanged",
+    "totalNodes": 13,
+    "executableChange": false
   }
 }
 
