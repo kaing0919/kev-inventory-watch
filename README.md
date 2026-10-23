@@ -1,4 +1,4 @@
-# KEV Inventory Watch for n8n
+# KEV Inventory Watch
 
 Match new CISA Known Exploited Vulnerability catalog entries against a small software inventory and deliver a daily Discord digest. No LLM, paid search service, NVD API key or external database is required. n8n hosting may have its own costs; this project does not include hosting.
 
@@ -31,7 +31,7 @@ The state uses [workflow static data](https://docs.n8n.io/code/cookbook/builtin/
 
 ## Verification
 
-`validation.json` records the actual checks and limits. Logic checks used synthetic positive/negative controls and a downloaded current official catalog. The workflow runtime preview is reported separately when completed. No Discord credential was supplied, so no external Discord message, durable production schedule, affiliate conversion, commission or income is claimed.
+Built with AI assistance and tested in the actual product. `validation.json` records the actual checks and limits. Ten logic checks used synthetic positive/negative controls and a downloaded current official catalog. A full n8n 2.44.5 CLI execution succeeded on 2026-10-23, fetched the official mirror (1,754 entries), generated eight preview candidates and skipped Discord delivery. No Discord credential was supplied, so no external Discord message, durable production schedule, affiliate conversion, commission or income is claimed.
 
 ## Sources
 
